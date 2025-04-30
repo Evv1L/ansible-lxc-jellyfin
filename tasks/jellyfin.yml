@@ -1,0 +1,62 @@
+---
+
+# Preparation before installing Jellyfin package
+
+- name: "Create {{ jellyfin_user_name | default('jellyfin') }} user"
+  ansible.builtin.user:
+    name: jellyfin
+    uid: "{{ jellyfin_user_uid | default(103) }}"
+    groups:
+      - video
+      - render
+    append: yes
+
+- name: Create Jellyfin's default folders
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: jellyfin
+    group: jellyfin
+    mode: '0775'
+    state: directory
+  loop:
+    - '/var/lib/jellyfin'
+    - '/etc/jellyfin'
+    - '/var/log/jellyfin'
+    - '/var/cache/jellyfin'
+
+# Move Jellyfin data out to other location if mountpoint is defined
+# Example: To store all data on mounted SMB share or subvolume
+
+- name: Create folders for mountpoints
+  ansible.builtin.file:
+    path: "{{ item }}"
+    owner: jellyfin
+    group: jellyfin
+    mode: '0775'
+    state: directory
+  loop:
+    - '{{ jellyfin_data_mountpoint }}/data'
+    - '{{ jellyfin_data_mountpoint }}/config'
+    - '{{ jellyfin_data_mountpoint }}/log'
+    - '{{ jellyfin_data_mountpoint }}/cache'
+  when: jellyfin_data_mountpoint is defined
+
+- name: Create mountpoints of Jellyfin data
+  ansible.posix.mount:
+    path: "{{ item.path }}"
+    src: "{{ item.src }}"
+    opts: bind
+    state: mounted
+    fstype: none
+    boot: true
+  loop:
+    - { path: '/var/lib/jellyfin', src: '{{ jellyfin_data_mountpoint }}/data' }
+    - { path: '/etc/jellyfin', src: '{{ jellyfin_data_mountpoint }}/config' }
+    - { path: '/var/log/jellyfin', src: '{{ jellyfin_data_mountpoint }}/log' }
+    - { path: '/var/cache/jellyfin', src: '{{ jellyfin_data_mountpoint }}/cache' }
+  when: jellyfin_data_mountpoint is defined
+
+# Installing Jellyfin - trigger distro specific installation by flushing handlers
+
+- name: Flush handlers
+  meta: flush_handlers

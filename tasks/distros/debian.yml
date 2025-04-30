@@ -1,0 +1,67 @@
+---
+
+# Essentials
+
+- name: Add Debian repos and non-free
+  deb822_repository:
+    name: debian
+    types: deb
+    uris: http://deb.debian.org/debian
+    suites: "{{ ansible_distribution_release }}"
+    components:
+      - main               # Some systems (e.g. cloudinit) doesn't have main and contrib
+      - contrib
+      - non-free
+      - non-free-firmware  # Must have with non-free, otherwise apt will throw warnings
+  register: debian_sources
+
+- name: Force update repository cache if apt components changed
+  ansible.builtin.apt:
+    update_cache: yes
+    force: true
+  when: debian_sources.changed
+
+- name: Update repository cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Upgrade all packages
+  ansible.builtin.apt:
+    name: "*"
+    state: latest
+
+# Add Jellyfin repo
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gpg
+      - gnupg
+      - intel-opencl-icd # For hardware acceleration with Intel GPU
+    state: latest
+
+- name: Create directory for Jellyfin GPG key
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Add Jellyfin repository
+  ansible.builtin.deb822_repository:
+    name: "jellyfin"
+    types: "deb"
+    uris: "https://repo.jellyfin.org/{{ ansible_os_family | lower }}"
+    suites: "{{ ansible_distribution_release }}"
+    components: "main"
+    signed_by: "https://repo.jellyfin.org/jellyfin_team.gpg.key"
+  register: jellyfin_sources
+  notify: Debian | Install Jellyfin
+
+- name: Update repository cache when Jellyfin sources changed
+  ansible.builtin.apt:
+    update_cache: yes
+    force: true
+  when: jellyfin_sources.changed

@@ -1,0 +1,10 @@
+---
+
+# Distro specific setups
+
+- name: "Debian: Configure apt and install packages"
+  import_tasks: "distros/debian.yml"
+  when: ansible_distribution == "Debian"
+
+- name: "Install Jellyfin"
+  import_tasks: "jellyfin.yml"

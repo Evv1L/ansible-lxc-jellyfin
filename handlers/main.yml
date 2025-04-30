@@ -1,0 +1,6 @@
+---
+- name: Debian | Install Jellyfin
+  ansible.builtin.apt:
+    name:
+      - jellyfin
+    state: latest
